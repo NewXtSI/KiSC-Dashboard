@@ -94,6 +94,8 @@ void GUI::update() {
     if (screenId == 1) {
         ((Dash*)(activeScreen))->setSpeed(motor.getLeftSpeed());
         ((Dash*)(activeScreen))->setThrottle(controller.getCompensatedThrottle());
+        ((Dash*)(activeScreen))->setTemperature(motor.getTemperature());
+        ((Dash*)(activeScreen))->setBattery(motor.getVoltage());
         if (!motor.isConnected()) {
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_CHECK_ENGINE);
         } else {
@@ -105,6 +107,31 @@ void GUI::update() {
         } else {
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_INDICATOR_LEFT);
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_INDICATOR_RIGHT);
+        }
+        if (controller.getLightStates().lowBeam) {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_LOW_BEAM);
+        } else {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_LOW_BEAM);
+        }
+        if (controller.getLightStates().highBeam) {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_HIGH_BEAM);
+        } else {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_HIGH_BEAM);
+        }
+        if (controller.getDriveMode() == PARKING) {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_PARKING_BRAKE);
+        } else {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_PARKING_BRAKE);
+        }
+        if (controller.getESPWorking()) {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_ESP);
+        } else {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_ESP);
+        }
+        if (controller.getLaunchControlActive()) {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_LAUNCH_CONTROL);
+        } else {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_LAUNCH_CONTROL);
         }
     }
     activeScreen->update();

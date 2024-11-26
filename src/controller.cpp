@@ -64,6 +64,15 @@ Controller::Controller(int mode)  : controller_running(true) {
     this->rightSpeed = 0;
     this->flywheel = false;
     this->driveMode = MOTOR_OFF;
+
+    this->lightStates.brakeLight = false;
+    this->lightStates.lowBeam = false;
+    this->lightStates.highBeam = false;
+    this->lightStates.indicatorLeft = false;
+    this->lightStates.indicatorRight = false;
+    this->lightStates.horn = false;
+    this->espWorking = false;
+    this->launchControlActive = false;
     setSettings(mode);
 
     periodicThread = std::thread(&Controller::periodicTask, this);

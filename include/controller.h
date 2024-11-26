@@ -14,6 +14,15 @@ typedef enum {
     REVERSE
 } DriveMode;
 
+typedef struct {
+    bool    lowBeam;
+    bool    highBeam;
+    bool    brakeLight;
+    bool    indicatorLeft;
+    bool    indicatorRight;
+    bool    horn;
+
+} LightStates;
 // The controller should have inputs for throttle and brake (values range from 0 to 1023) and steering (-1023 to 1023, left to right)
 class Controller {
 public:
@@ -58,8 +67,11 @@ public:
     int         getRPM();
     void        setMotorButton(bool motorButton);
     bool        getIndicatorOn() { return indicatorOn; }
-
+    LightStates getLightStates() { return lightStates; }
+    bool       getESPWorking() { return espWorking; }
+    bool     getLaunchControlActive() { return launchControlActive; }
 private:
+    LightStates         lightStates;
     std::thread         periodicThread;
     std::atomic<bool>   controller_running;
     std::mutex          controller_mtx;
@@ -78,6 +90,9 @@ private:
     int                 simulatedRPM;
 
     bool                indicatorOn;
+    bool                espWorking;
+    bool                launchControlActive;
+
     void                periodicTask();
 };
 

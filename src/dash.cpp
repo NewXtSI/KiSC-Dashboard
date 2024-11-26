@@ -29,14 +29,14 @@ void Dash::create() {
     battery_bar = lv_bar_create(screen);
     lv_obj_set_size(battery_bar, 15, 102);
     lv_obj_set_pos(battery_bar, 5, 5);
-    lv_bar_set_range(battery_bar, 3200, 4200);    
+    lv_bar_set_range(battery_bar, 3000, 4200);    
     lv_bar_set_value(battery_bar, 4000, LV_ANIM_ON);
     lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);    
 
     temperature_bar = lv_bar_create(screen);
     lv_obj_set_size(temperature_bar, 15, 102);
     lv_obj_set_pos(temperature_bar, 22, 5);
-    lv_bar_set_range(temperature_bar, 10, 80);    
+    lv_bar_set_range(temperature_bar, 0, 80);    
     lv_bar_set_value(temperature_bar, 12, LV_ANIM_ON);
     lv_obj_set_style_bg_color(temperature_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);    
 
@@ -109,7 +109,6 @@ void Dash::create() {
     fuel_power_16_img = lv_img_create(screen);
     lv_img_set_src(fuel_power_16_img, &fuel_power_16);
     lv_obj_set_pos(fuel_power_16_img, 5, 135-16);
-    lv_obj_add_flag(fuel_power_16_img, LV_OBJ_FLAG_HIDDEN);
 }
  
 void Dash::refreshStates() {
@@ -230,6 +229,18 @@ void Dash::update() {
             lv_label_set_text_fmt(speed_label, "%d", (int)speed);
 
             lv_bar_set_value(throttle_bar, throttle, LV_ANIM_ON);
+            lv_bar_set_value(power_bar, power, LV_ANIM_ON);
+            lv_bar_set_value(temperature_bar, (int16_t)(temperature), LV_ANIM_ON);
+
+            if (battery < 3.2) {
+            lv_bar_set_value(battery_bar, 3100, LV_ANIM_ON);
+                lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0xFF0000), LV_PART_INDICATOR);
+                setSymbols(getSymbols() | DASH_SYMBOL_FUEL_POWER);
+            } else {
+            lv_bar_set_value(battery_bar, (int16_t)battery*1000, LV_ANIM_ON);
+                lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);
+                setSymbols(getSymbols() & ~DASH_SYMBOL_FUEL_POWER);
+            }
         }
     }
 

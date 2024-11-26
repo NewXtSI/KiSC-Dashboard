@@ -73,13 +73,26 @@ void Motor::updateStatistics() {
 
 float Motor::getVoltage() {
     std::lock_guard<std::mutex> lock(motor_mtx);
-    return this->voltage;
+    if (this->isConnected()) {
+        return this->voltage;
+    }
+    return 0.0f;
 }
 
 float Motor::getCurrent(uint8_t motor) {
     std::lock_guard<std::mutex> lock(motor_mtx);
     if (motor < 2) {
-        return this->current[motor];
+        if (this->isConnected()) {
+            return this->current[motor];
+        }
+    }
+    return 0.0f;
+}
+
+float Motor::getTemperature() {
+    std::lock_guard<std::mutex> lock(motor_mtx);
+    if (this->isConnected()) {
+        return this->temperature;
     }
     return 0.0f;
 }
@@ -87,7 +100,9 @@ float Motor::getCurrent(uint8_t motor) {
 double Motor::getSpeed(uint8_t motor) {
     std::lock_guard<std::mutex> lock(motor_mtx);
     if (motor < 2) {
+        if (this->isConnected()) {
         return this->speed[motor];
+        }
     }
     return 0.0;
 }

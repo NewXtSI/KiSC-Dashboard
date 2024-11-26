@@ -7,10 +7,17 @@ public:
     void create() override;
     void setSpeed(float speed) { this->speed = speed; }
     void setThrottle(int throttle) { this->throttle = throttle; }
+    void setPower(float power) { this->power = power; }
+    void setTemperature(float temperature) { this->temperature = temperature; }
+    void setBattery(float battery) { this->battery = battery; }
 private:
     float       speed;
     int         throttle;
-
+    float       power;
+    float       temperature;
+    float       battery;
+    bool        motorConnected;
+    
     lv_obj_t * battery_bar;
     lv_obj_t * temperature_bar;
     lv_obj_t * throttle_bar;

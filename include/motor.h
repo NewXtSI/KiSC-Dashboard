@@ -18,6 +18,7 @@ public:
     int getSteering();
     void sendSpeedAndSteering();
     float getVoltage();
+    float getTemperature();
     float getCurrent(uint8_t motor);
     double getSpeed(uint8_t motor);
 
@@ -33,6 +34,7 @@ private:
     std::atomic<bool> motor_running;
 
     float voltage;
+    float temperature;
     float current[2];
     double speed[2];
 
