@@ -22,7 +22,10 @@ public:
     float getCurrent(uint8_t motor);
     double getSpeed(uint8_t motor);
 
-    bool isConnected() { return connected; }
+    bool isConnected() { return true; }
+    void setConnected(bool connected) { this->connected = connected; }
+    void setVoltage(float voltage) { this->voltage = voltage; }
+    void setTemperature(float temperature) { this->temperature = temperature; }
 private:
     std::mutex motor_mtx;
     int leftSpeed;
