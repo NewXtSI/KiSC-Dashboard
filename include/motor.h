@@ -21,13 +21,23 @@ public:
     float getTemperature();
     float getCurrent(uint8_t motor);
     double getSpeed(uint8_t motor);
+    void setRpm(int rpmLeft, int rpmRight);
 
-    bool isConnected() { return true; }
+    bool isConnected() { return this->connected; }
     void setConnected(bool connected) { this->connected = connected; }
     void setVoltage(float voltage) { this->voltage = voltage; }
     void setTemperature(float temperature) { this->temperature = temperature; }
+    void setDesiredTorqueLeft(int torque) { this->desiredTorqueLeft = torque; }
+    void setDesiredTorqueRight(int torque) { this->desiredTorqueRight = torque; }
+    int getDesiredTorqueLeft() { return this->desiredTorqueLeft; }
+    int getDesiredTorqueRight() { return this->desiredTorqueRight; }
 private:
     std::mutex motor_mtx;
+    int rpmLeft;
+    int rpmRight;
+
+    int desiredTorqueLeft;
+    int desiredTorqueRight;
     int leftSpeed;
     int rightSpeed;
     int steering;
@@ -41,6 +51,7 @@ private:
     float current[2];
     double speed[2];
 
+    void calcSpeed();
     void periodicTask();
     void updateStatistics();
 };

@@ -92,15 +92,25 @@ void GUI::screenSwitchCallback(void* arg) {
 
 void GUI::update() {
     if (screenId == 1) {
-        ((Dash*)(activeScreen))->setSpeed(motor.getLeftSpeed());
-        ((Dash*)(activeScreen))->setThrottle(controller.getCompensatedThrottle());
-        ((Dash*)(activeScreen))->setTemperature(motor.getTemperature());
-        ((Dash*)(activeScreen))->setBattery(motor.getVoltage());
         if (!motor.isConnected()) {
+            ((Dash*)(activeScreen))->setSpeed(0);
+            ((Dash*)(activeScreen))->setThrottle(controller.getCompensatedThrottle());
+            ((Dash*)(activeScreen))->setTemperature(0);
+            ((Dash*)(activeScreen))->setBattery(0);
+
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_CHECK_ENGINE);
         } else {
+            ((Dash*)(activeScreen))->setSpeed(motor.getLeftSpeed());
+            ((Dash*)(activeScreen))->setThrottle(controller.getCompensatedThrottle());
+            ((Dash*)(activeScreen))->setTemperature(motor.getTemperature());
+            ((Dash*)(activeScreen))->setBattery(motor.getVoltage());
+
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_CHECK_ENGINE);
         }
+        ((Dash*)(activeScreen))->setPower(controller.getRPM());
+
+        ((Dash*)(activeScreen))->setDriveMode(controller.getDriveMode());
+
         if (controller.getIndicatorOn()) {
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_INDICATOR_LEFT);
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_INDICATOR_RIGHT);

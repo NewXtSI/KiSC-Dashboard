@@ -1,5 +1,6 @@
 #pragma once
 #include "screen.h"
+#include "controller.h"
 
 class Dash : public Screen {
 public:
@@ -10,6 +11,7 @@ public:
     void setPower(float power) { this->power = power; }
     void setTemperature(float temperature) { this->temperature = temperature; }
     void setBattery(float battery) { this->battery = battery; }
+    void setDriveMode(DriveMode mode) { this->driveMode = mode; }
 private:
     float       speed;
     int         throttle;
@@ -17,12 +19,13 @@ private:
     float       temperature;
     float       battery;
     bool        motorConnected;
-    
+    DriveMode  driveMode;
     lv_obj_t * battery_bar;
     lv_obj_t * temperature_bar;
     lv_obj_t * throttle_bar;
     lv_obj_t * power_bar;
     lv_obj_t * speed_label;
+    lv_obj_t * drivemode_label;
     
     lv_obj_t * indicator_left_img;
     lv_obj_t * indicator_right_img;

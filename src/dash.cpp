@@ -29,8 +29,8 @@ void Dash::create() {
     battery_bar = lv_bar_create(screen);
     lv_obj_set_size(battery_bar, 15, 102);
     lv_obj_set_pos(battery_bar, 5, 5);
-    lv_bar_set_range(battery_bar, 3000, 4200);    
-    lv_bar_set_value(battery_bar, 4000, LV_ANIM_ON);
+    lv_bar_set_range(battery_bar, 30000, 42000);    
+    lv_bar_set_value(battery_bar, 40000, LV_ANIM_ON);
     lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);    
 
     temperature_bar = lv_bar_create(screen);
@@ -50,7 +50,7 @@ void Dash::create() {
     power_bar = lv_bar_create(screen);
     lv_obj_set_size(power_bar, 15, 102);
     lv_obj_set_pos(power_bar, 203, 5);
-    lv_bar_set_range(power_bar, 0, 100);    
+    lv_bar_set_range(power_bar, 0, 1000);    
     lv_bar_set_value(power_bar, 50, LV_ANIM_ON);
     lv_obj_set_style_bg_color(power_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);    
 
@@ -60,10 +60,16 @@ void Dash::create() {
     lv_obj_align(speed_label, LV_ALIGN_TOP_MID, 0, 40);
     lv_obj_set_style_text_font(speed_label, &Federals_Chrome_Ital_54, 0);
     lv_obj_set_style_text_color(speed_label, lv_color_hex(0x0C978E), 0);
+
     lv_obj_t *label = lv_label_create(screen);
     lv_label_set_text(label, "km/h");
     lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 100);
     lv_obj_set_style_text_color(label, lv_color_hex(0x0C978E), 0);
+
+    drivemode_label = lv_label_create(screen);
+    lv_label_set_text(drivemode_label, "Neutral");
+    lv_obj_align(drivemode_label, LV_ALIGN_TOP_MID, 0, 120);
+    lv_obj_set_style_text_color(drivemode_label, lv_color_hex(0x0C978E), 0);
 
     indicator_left_img = lv_img_create(screen);
     lv_img_set_src(indicator_left_img, &indicator_left);
@@ -216,15 +222,7 @@ void Dash::update() {
     refreshStates();
 
         if (speed_label != nullptr) {
-            lv_obj_invalidate(fuel_power_img);
-            lv_obj_invalidate(fuel_power_16_img);
-            lv_obj_invalidate(beam_img);
-            lv_obj_invalidate(park_img);
-            lv_obj_invalidate(launch_img);
-            lv_obj_invalidate(esp_img);
-            lv_obj_invalidate(check_engine_img);
-            lv_obj_invalidate(indicator_right_img);
-            lv_obj_invalidate(indicator_left_img);
+            
             
             lv_label_set_text_fmt(speed_label, "%d", (int)speed);
 
@@ -232,14 +230,32 @@ void Dash::update() {
             lv_bar_set_value(power_bar, power, LV_ANIM_ON);
             lv_bar_set_value(temperature_bar, (int16_t)(temperature), LV_ANIM_ON);
 
-            if (battery < 3.2) {
-            lv_bar_set_value(battery_bar, 3100, LV_ANIM_ON);
+            if (battery < 32) {
+            lv_bar_set_value(battery_bar, 31000, LV_ANIM_ON);
                 lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0xFF0000), LV_PART_INDICATOR);
                 setSymbols(getSymbols() | DASH_SYMBOL_FUEL_POWER);
             } else {
             lv_bar_set_value(battery_bar, (int16_t)battery*1000, LV_ANIM_ON);
                 lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);
                 setSymbols(getSymbols() & ~DASH_SYMBOL_FUEL_POWER);
+            }
+
+            switch (driveMode) {
+                case MOTOR_OFF:
+                    lv_label_set_text(drivemode_label, "Motor off");
+                    break;
+                case PARKING:
+                    lv_label_set_text(drivemode_label, "Parking");
+                    break;
+                case NEUTRAL:
+                    lv_label_set_text(drivemode_label, "Neutral");
+                    break;
+                case DRIVE:
+                    lv_label_set_text(drivemode_label, "Drive");
+                    break;
+                case REVERSE:
+                    lv_label_set_text(drivemode_label, "Reverse");
+                    break;
             }
         }
     }

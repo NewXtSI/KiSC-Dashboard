@@ -10,7 +10,8 @@ std::atomic<bool> controller_running(true);
 
 void Controller::periodicTask() {
     while (controller_running) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        taskYIELD();
         std::lock_guard<std::mutex> lock(controller_mtx);
         compute();
 
@@ -27,15 +28,17 @@ struct ControllerSettings {
     int maxAcceleration;
     int maxSpeed;
     int maxBrake;
+    int maxAccReverse;
+    int maxSpeedReverse;
     int maxSteering;
 };
 
 ControllerSettings globalSettings;
 
 ControllerSettings settingsArray[] = {
-    {10, 300, 10, 1023},  // Kid
-    {20, 600, 20, 1023},  // Average
-    {30, 900, 30, 1023}   // Advanced
+    {20, 4, 10, 20, 4, 1023},  // Kid
+    {100, 6, 20, 70, 6, 1023},  // Average
+    {500, 10, 30, 70, 6, 1023}   // Advanced
 };
 
 // Initialize the global settings to kid safe values
@@ -53,6 +56,52 @@ Controller::getCompensatedThrottle() {
 
 void 
 Controller::setDriveMode(DriveMode mode) {
+    Serial.printf("Setting drive mode to %d\n", mode);
+    switch (mode) {
+        case MOTOR_OFF:
+            Serial.printf("Motor off\n");
+            break;
+        case NEUTRAL:
+            Serial.printf("Neutral\n");
+            break;
+        case DRIVE:
+            if (!motorConnected) {
+                Serial.printf("Motor error, cannot switch to drive!\n");
+                return;
+                }
+            if (abs(this->realRPM) > 50) {
+                Serial.printf("Cannot switch to drive while moving!\n");
+                return;
+            }
+            Serial.printf("Drive\n");
+            break;
+        case REVERSE:
+            if (!motorConnected) {
+                Serial.printf("Motor error, cannot switch to reverse!\n");
+                return;
+            }
+            if (abs(this->realRPM) > 50) {
+                Serial.printf("Cannot switch to reverse while moving!\n");
+                return;
+            }
+            Serial.printf("Reverse\n");
+            break;
+        case PARKING:
+            if (!getMotorConnected()) {
+                Serial.printf("Motor error, cannot switch to parking!\n");
+                return;
+            }
+            if (abs(this->realRPM) > 50) {
+                Serial.printf("Cannot switch to parking while moving!\n");
+                return;
+            }
+            Serial.printf("Parking\n");
+            break;
+        default:
+            Serial.printf("Invalid drive mode\n");
+            return;
+    }
+    Serial.printf("really setting drive mode to %d\n", mode);
     this->driveMode = mode;
 }
 
@@ -62,7 +111,6 @@ Controller::Controller(int mode)  : controller_running(true) {
     this->steering = 0;
     this->leftSpeed = 0;
     this->rightSpeed = 0;
-    this->flywheel = false;
     this->driveMode = MOTOR_OFF;
 
     this->lightStates.brakeLight = false;
@@ -73,6 +121,12 @@ Controller::Controller(int mode)  : controller_running(true) {
     this->lightStates.horn = false;
     this->espWorking = false;
     this->launchControlActive = false;
+    this->indicatorOn = false;
+    this->calculatedTorqueLeft = 0;
+    this->calculatedTorqueRight = 0;
+    this->realRPM = 0;
+    this->simulatedRPM = 0;
+    this->motorConnected = false;
     setSettings(mode);
 
     periodicThread = std::thread(&Controller::periodicTask, this);
@@ -87,9 +141,14 @@ void Controller::setSettings(int mode) {
     }
 }
 
-void Controller::demonstrate() {
-    // Run a fake loop via a timer to demonstrate the controller
-
+void Controller::setMotorConnected(bool connected) {
+    if (!connected) {
+        if (this->driveMode == DRIVE || this->driveMode == REVERSE) {
+            this->driveMode = NEUTRAL;
+            return;
+        }
+    }
+    this->motorConnected = connected;
 }
 
 void        
@@ -97,72 +156,62 @@ Controller::setMotorButton(bool motorButton) {
     if (motorButton) {
         if (this->driveMode == MOTOR_OFF) {
             this->driveMode = NEUTRAL;
+//            this->driveMode = NEUTRAL;
         } else {
             this->driveMode = MOTOR_OFF;
         }
     }
 }
 
-// In the periodic task the controller should compute the speeds based on the throttle input.
-// If the throttle input is 0, the controller should enter flywheel mode, if the actual speed is above a certain threshold.
-// The controller should also take the brake input into account. If the brake input is above a certain threshold, the controller should brake.
-// The speed jumps to high at the motors, so a maximum acceleration should be taken into account.
-// The acceleration should not be linear, but should be based on the difference between the current speed and the desired speed.
-// The brake should not be fixed, should be a slowdown of the speed with a given factor
 void Controller::compute() {
-    int desiredSpeed = 0;
-    int acceleration = 0;
-    int brake = 0;
-
-    if (this->throttle == 0) {
-        if (this->leftSpeed > 0) {
-            this->leftSpeed -= 10;
-        } else {
-            this->leftSpeed = 0;
-        }
-        if (this->rightSpeed > 0) {
-            this->rightSpeed -= 10;
-        } else {
-            this->rightSpeed = 0;
-        }
-    } else {
-        desiredSpeed = this->throttle * globalSettings.maxSpeed / 1023;
-        acceleration = (desiredSpeed - this->leftSpeed) * globalSettings.maxAcceleration / 1023;
-        if (acceleration > globalSettings.maxAcceleration) {
-            acceleration = globalSettings.maxAcceleration;
-        }
-        if (acceleration < -globalSettings.maxAcceleration) {
-            acceleration = -globalSettings.maxAcceleration;
-        }
-        this->leftSpeed += acceleration;
-        this->rightSpeed += acceleration;
+    if (this->driveMode == MOTOR_OFF) {
+        this->calculatedTorqueLeft = 0;
+        this->calculatedTorqueRight = 0;
     }
 
-    if (this->brake > 0) {
-        brake = this->brake * globalSettings.maxBrake / 1023;
-        if (this->leftSpeed > brake) {
-            this->leftSpeed -= brake;
-        } else {
-            this->leftSpeed = 0;
-        }
-        if (this->rightSpeed > brake) {
-            this->rightSpeed -= brake;
-        } else {
-            this->rightSpeed = 0;
-        }
+    if (this->driveMode == NEUTRAL) {
+        this->setSimulatedRPM(this->throttle);
     }
+    int16_t wheelDiameterincm = 21;
+    int16_t wheelCircumference = wheelDiameterincm * 3.14159265359;
 
-    if (this->leftSpeed > globalSettings.maxSpeed) {
-        this->leftSpeed = globalSettings.maxSpeed;
-    }
-    if (this->rightSpeed > globalSettings.maxSpeed) {
-        this->rightSpeed = globalSettings.maxSpeed;
-    }
-    if (this->leftSpeed < 0) {
-        this->leftSpeed = 0;
-    }
-    if (this->rightSpeed < 0) {
-        this->rightSpeed = 0;
+    if (this->driveMode == DRIVE) {
+        int16_t rpm = this->getRealRPM();
+        float speed = (rpm * wheelCircumference) / 6000.0;      //  Geschwindigkeit in km/h
+
+        if (speed > globalSettings.maxSpeed) {  // Zwangsbremse!!!!
+            this->calculatedTorqueLeft = -0;
+            this->calculatedTorqueRight = -0;
+        } else {
+            int16_t targetTorque = 0;
+            int16_t leftTargetTorque = 0;
+/*          if (this->brake > 0) {      // Bremsen
+                if (abs(speed) < 0.5) {  // Standstill
+
+                } else {    // Abbremsen
+
+                }
+            } else */if (this->throttle > 0) {    // Beschleunigen
+                targetTorque = this->throttle;
+                leftTargetTorque = map(targetTorque,0,1023,0,globalSettings.maxAcceleration);
+                if (leftTargetTorque < 5) {
+                    leftTargetTorque = 0;
+                }
+            }
+            this->calculatedTorqueLeft = leftTargetTorque;
+            this->calculatedTorqueRight = -leftTargetTorque;
+        }
+    } else if (this->driveMode == REVERSE) {
+        int16_t rpm = this->getRealRPM();
+        float speed = (abs(rpm) * wheelCircumference) / 6000.0;      //  Geschwindigkeit in km/h
+
+        if (speed > globalSettings.maxSpeed) {  // Zwangsbremse!!!!
+            this->calculatedTorqueLeft = -0;
+            this->calculatedTorqueRight = -0;
+        } else {
+            int16_t targetTorque = 0;
+            int16_t leftTargetTorque = 0;
+        }
     }
 }
 
@@ -202,22 +251,6 @@ int Controller::getRightSpeed() {
     return this->rightSpeed;
 }
 
-void Controller::setLeftSpeed(int speed) {
-    this->leftSpeed = speed;
-}
-
-void Controller::setRightSpeed(int speed) {
-    this->rightSpeed = speed;
-}
-
-void Controller::setFlywheel(bool flywheel) {
-    this->flywheel = flywheel;
-}
-
-bool Controller::getFlywheel() {
-    return this->flywheel;
-}
-
 void Controller::setSimulatedRPM(int rpm) {
     this->simulatedRPM = rpm;
 }
@@ -231,7 +264,10 @@ void Controller::setRealRPM(int rpm) {
 }
 
 int Controller::getRealRPM() {
-    return this->realRPM;
+    if (this->getMotorConnected()) {
+        return this->realRPM;
+    }
+    return 0;
 }
 
 int Controller::getRPM() {

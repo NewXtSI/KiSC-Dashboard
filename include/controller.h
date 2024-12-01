@@ -26,7 +26,7 @@ typedef struct {
 // The controller should have inputs for throttle and brake (values range from 0 to 1023) and steering (-1023 to 1023, left to right)
 class Controller {
 public:
-    Controller(int mode = 0);  // Default to kid mode
+    Controller(int mode = 1);  // Default to kid mode
     ~Controller();
     void setSettings(int mode);
     void compute();
@@ -48,28 +48,29 @@ public:
     // return -1023 to 1023, MOTOR_FLYWHEEL for flywheel
     int         getLeftSpeed();
     int         getRightSpeed();
-    void        setLeftSpeed(int speed);
-    void        setRightSpeed(int speed);
 
-    void        setFlywheel(bool flywheel);
-    bool        getFlywheel();
+    void                setDriveMode(DriveMode mode);
+    DriveMode           getDriveMode();
 
-    void        demonstrate();
-    void        setDriveMode(DriveMode mode);
-    DriveMode   getDriveMode();
+    void                setSimulatedRPM(int rpm);
+    int                 getSimulatedRPM();
 
-    void        setSimulatedRPM(int rpm);
-    int         getSimulatedRPM();
+    void                setRealRPM(int rpm);
+    int                 getRealRPM();
 
-    void        setRealRPM(int rpm);
-    int         getRealRPM();
 
-    int         getRPM();
-    void        setMotorButton(bool motorButton);
-    bool        getIndicatorOn() { return indicatorOn; }
-    LightStates getLightStates() { return lightStates; }
-    bool       getESPWorking() { return espWorking; }
-    bool     getLaunchControlActive() { return launchControlActive; }
+
+    int                 getRPM();
+    void                setMotorButton(bool motorButton);
+    bool                getIndicatorOn() { return indicatorOn; }
+    LightStates         getLightStates() { return lightStates; }
+    bool                getESPWorking() { return espWorking; }
+    bool                getLaunchControlActive() { return launchControlActive; }
+
+    int                 getCalculatedTorqueLeft() { return calculatedTorqueLeft; }
+    int                 getCalculatedTorqueRight() { return calculatedTorqueRight; }
+    void                setMotorConnected(bool connected);
+    bool                getMotorConnected() { return motorConnected; }
 private:
     LightStates         lightStates;
     std::thread         periodicThread;
@@ -85,10 +86,13 @@ private:
     int                 steering;
     int                 leftSpeed;
     int                 rightSpeed;
-    bool                flywheel;
+    bool                motorConnected;
     int                 realRPM;
     int                 simulatedRPM;
 
+
+    int                 calculatedTorqueLeft;
+    int                 calculatedTorqueRight;
     bool                indicatorOn;
     bool                espWorking;
     bool                launchControlActive;
