@@ -143,6 +143,11 @@ void GUI::update() {
         } else {
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_LAUNCH_CONTROL);
         }
+        if (motor.isCharging()) {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_CHARGING);
+        } else {
+            ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_CHARGING);
+        }
     }
     activeScreen->update();
     lv_task_handler();

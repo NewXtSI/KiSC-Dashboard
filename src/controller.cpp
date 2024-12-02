@@ -172,8 +172,9 @@ void Controller::compute() {
     if (this->driveMode == NEUTRAL) {
         this->setSimulatedRPM(this->throttle);
     }
-    int16_t wheelDiameterincm = 21;
-    int16_t wheelCircumference = wheelDiameterincm * 3.14159265359;
+//    float wheelDiameterincm = 16.51;     // 16,5" Reifen
+    float wheelDiameterincm = 20.32;     // 8" Reifen
+    float wheelCircumference = wheelDiameterincm * 3.14159265359;
 
     if (this->driveMode == DRIVE) {
         int16_t rpm = this->getRealRPM();
@@ -191,8 +192,8 @@ void Controller::compute() {
                 } else {    // Abbremsen
 
                 }
-            } else */if (this->throttle > 0) {    // Beschleunigen
-                targetTorque = this->throttle;
+            } else */if (this->throttle > 15) {    // Beschleunigen
+                targetTorque = this->getCompensatedThrottle();
                 leftTargetTorque = map(targetTorque,0,1023,0,globalSettings.maxAcceleration);
                 if (leftTargetTorque < 5) {
                     leftTargetTorque = 0;
@@ -211,6 +212,7 @@ void Controller::compute() {
         } else {
             int16_t targetTorque = 0;
             int16_t leftTargetTorque = 0;
+           
         }
     }
 }

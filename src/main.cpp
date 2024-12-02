@@ -49,7 +49,13 @@ void sendSoundAndLightControl() {
     message.command = kisc::protocol::espnow::Command::SoundLightControl;
     message.soundAndLightControl.motorOn = controller.getDriveMode() == DriveMode::DRIVE || controller.getDriveMode() == DriveMode::REVERSE || controller.getDriveMode() == DriveMode::NEUTRAL;
     message.soundAndLightControl.throttle = controller.getCompensatedThrottle();
-    
+    message.soundAndLightControl.rpm = map(controller.getRPM(), 0, 1000, 0, 500);
+
+    if (controller.getDriveMode() == DriveMode::REVERSE) {
+        message.soundAndLightControl.lights.reverseLight = true;
+    } else {
+        message.soundAndLightControl.lights.reverseLight = false;
+    }
     if (controller.getThrottle() > 20) {
         message.soundAndLightControl.lights.highBeam = false;
         message.soundAndLightControl.lights.lowBeam = false;
@@ -59,9 +65,12 @@ void sendSoundAndLightControl() {
     }
     message.soundAndLightControl.lights.indicatorLeft = controller.getIndicatorOn();
     message.soundAndLightControl.lights.indicatorRight = controller.getIndicatorOn();
-    message.soundAndLightControl.volumeMain = 0.8;
+    message.soundAndLightControl.volumeMain = 0.2;
 
     sendKiSCMessage(SOUND_LIGHT_CONTROLLER_MAC, message);
+}
+
+void sendPeriphalControl() {
 }
 
 void sendMotorControl() {
@@ -73,7 +82,21 @@ void sendMotorControl() {
     message.motorControl.right.pwm = motorc.getDesiredTorqueRight();
 
     message.motorControl.left.iMotMax = 10;
+    message.motorControl.left.nMotMax = 200;
+    message.motorControl.left.cruiseCtrlEna = false;
+    message.motorControl.left.cruiseMotTgt = 0;
+    message.motorControl.left.electricBrakeFactor = 127;
+    message.motorControl.left.mode = 2;
+    message.motorControl.left.type = 2;
+
     message.motorControl.right.iMotMax = 10;
+    message.motorControl.right.nMotMax = 200;
+    message.motorControl.right.cruiseCtrlEna = false;
+    message.motorControl.right.cruiseMotTgt = 0;
+    message.motorControl.right.electricBrakeFactor = 127;
+    message.motorControl.right.mode = 2;
+    message.motorControl.right.type = 2;
+    
     message.command = kisc::protocol::espnow::Command::MotorControl;
 
     sendKiSCMessage(MOTOR_CONTROLLER_MAC, message);
@@ -93,6 +116,7 @@ void recCallback(kisc::protocol::espnow::KiSCMessage message) {
 //        Serial.println("Motor feedback message");
         motorc.setVoltage(message.motorFeedback.batVoltage / 100.0);
         motorc.setTemperature(message.motorFeedback.boardTemp / 10.0);
+        motorc.setCharging(message.motorFeedback.bCharging);
         motorc.setConnected(message.motorFeedback.motorboardConnected);
         motorc.setRpm(message.motorFeedback.left.speed, message.motorFeedback.right.speed);
         controller.setRealRPM(message.motorFeedback.left.speed);
@@ -167,10 +191,11 @@ void commTask(void* pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(5)); // Adjust the delay as needed
         rtc_wdt_feed();
         esp_task_wdt_reset();
-        if (iSendInterval++ > 100) {
+        if (iSendInterval++ > 20) {     // Target: Alle 100ms
             iSendInterval = 0;
             sendSoundAndLightControl();
             sendMotorControl();
+            sendPeriphalControl();
         }
         if (millis() - lastHeartbeat > 10000) {
 //            Serial.printf("Sending heartbeat\n");

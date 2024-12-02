@@ -26,6 +26,8 @@ public:
     bool isConnected() { return this->connected; }
     void setConnected(bool connected) { this->connected = connected; }
     void setVoltage(float voltage) { this->voltage = voltage; }
+    void setCharging(bool charging) { this->charging = charging; }
+    bool isCharging() { return this->charging; }
     void setTemperature(float temperature) { this->temperature = temperature; }
     void setDesiredTorqueLeft(int torque) { this->desiredTorqueLeft = torque; }
     void setDesiredTorqueRight(int torque) { this->desiredTorqueRight = torque; }
@@ -48,6 +50,7 @@ private:
 
     float voltage;
     float temperature;
+    bool  charging;
     float current[2];
     double speed[2];
 

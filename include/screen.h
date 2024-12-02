@@ -11,7 +11,7 @@
 #define DASH_SYMBOL_ESP _BV(6)
 #define DASH_SYMBOL_FUEL_POWER _BV(7)
 #define DASH_SYMBOL_HIGH_BEAM _BV(8)
-
+#define DASH_SYMBOL_CHARGING _BV(9)
 
 
 class Screen {

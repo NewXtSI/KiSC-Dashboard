@@ -230,14 +230,20 @@ void Dash::update() {
             lv_bar_set_value(power_bar, power, LV_ANIM_ON);
             lv_bar_set_value(temperature_bar, (int16_t)(temperature), LV_ANIM_ON);
 
-            if (battery < 32) {
-            lv_bar_set_value(battery_bar, 31000, LV_ANIM_ON);
-                lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0xFF0000), LV_PART_INDICATOR);
-                setSymbols(getSymbols() | DASH_SYMBOL_FUEL_POWER);
-            } else {
-            lv_bar_set_value(battery_bar, (int16_t)battery*1000, LV_ANIM_ON);
-                lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);
+            if (getSymbols() & DASH_SYMBOL_CHARGING) {
+                lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C970C), LV_PART_INDICATOR);
+                lv_bar_set_value(battery_bar, (int16_t)battery*1000, LV_ANIM_ON);
                 setSymbols(getSymbols() & ~DASH_SYMBOL_FUEL_POWER);
+            } else {
+                if (battery < 32) {
+                    lv_bar_set_value(battery_bar, 31000, LV_ANIM_ON);
+                    lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0xFF0000), LV_PART_INDICATOR);
+                    setSymbols(getSymbols() | DASH_SYMBOL_FUEL_POWER);
+                } else {
+                   lv_bar_set_value(battery_bar, (int16_t)battery*1000, LV_ANIM_ON);
+                    lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);
+                    setSymbols(getSymbols() & ~DASH_SYMBOL_FUEL_POWER);
+                }
             }
 
             switch (driveMode) {

@@ -12,6 +12,7 @@ public:
     void setTemperature(float temperature) { this->temperature = temperature; }
     void setBattery(float battery) { this->battery = battery; }
     void setDriveMode(DriveMode mode) { this->driveMode = mode; }
+    
 private:
     float       speed;
     int         throttle;
@@ -19,6 +20,7 @@ private:
     float       temperature;
     float       battery;
     bool        motorConnected;
+    bool        charging;
     DriveMode  driveMode;
     lv_obj_t * battery_bar;
     lv_obj_t * temperature_bar;
