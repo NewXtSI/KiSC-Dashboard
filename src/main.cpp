@@ -11,6 +11,11 @@
 #include "hardware.h"
 #include <OneButton.h>
 
+#include "globals.h"
+#define ESP32DEBUGGING
+#include <ESP32Logger.h>
+
+
 #define BLUETOOTH_HID           0
 
 #if BLUETOOTH_HID
@@ -44,6 +49,9 @@ OneButton shiftDownButton = OneButton(
   true         // Enable internal pull-up resistor
 );
 
+void handleShiftDownClick();
+void handleShiftUpClick();
+
 void sendSoundAndLightControl() {
     kisc::protocol::espnow::KiSCMessage message;
     message.command = kisc::protocol::espnow::Command::SoundLightControl;
@@ -65,12 +73,20 @@ void sendSoundAndLightControl() {
     }
     message.soundAndLightControl.lights.indicatorLeft = controller.getIndicatorOn();
     message.soundAndLightControl.lights.indicatorRight = controller.getIndicatorOn();
-    message.soundAndLightControl.volumeMain = 0.2;
+    message.soundAndLightControl.volumeMain = 0.3;
 
     sendKiSCMessage(SOUND_LIGHT_CONTROLLER_MAC, message);
 }
 
+bool remoteControlActive = false;
+
 void sendPeriphalControl() {
+    if (remoteControlActive) {
+        kisc::protocol::espnow::KiSCMessage message;
+        message.command = kisc::protocol::espnow::Command::PeriphalControl;
+        message.peripheralControl.steering = controller.getSteering();
+        sendKiSCMessage(PERIPHERAL_CONTROLLER_MAC, message);
+    }
 }
 
 void sendMotorControl() {
@@ -107,10 +123,10 @@ void recCallback(kisc::protocol::espnow::KiSCMessage message) {
 
     switch (message.command) {
     case kisc::protocol::espnow::Command::Ping:
-        Serial.println("Ping message");
+        DBGCHK(Verbose, SERIAL_DEBUG_KISCMESSAGES, "Ping message");
         break;
     case kisc::protocol::espnow::Command::MotorControl:
-        Serial.println("Motor control message");
+        DBGCHK(Verbose, SERIAL_DEBUG_KISCMESSAGES, "Motor control message");
         break;
     case kisc::protocol::espnow::Command::MotorFeedback:
 //        Serial.println("Motor feedback message");
@@ -120,47 +136,94 @@ void recCallback(kisc::protocol::espnow::KiSCMessage message) {
         motorc.setConnected(message.motorFeedback.motorboardConnected);
         motorc.setRpm(message.motorFeedback.left.speed, message.motorFeedback.right.speed);
         controller.setRealRPM(message.motorFeedback.left.speed);
-//        Serial.printf("Voltage: %.2fV Temperature: %.2fC\n", motorc.getVoltage(), motorc.getTemperature());
+        DBGCHK(Verbose, SERIAL_DEBUG_KISCMESSAGES, "Voltage: %.2fV Temperature: %.2fC", motorc.getVoltage(), motorc.getTemperature());
         break;
     case kisc::protocol::espnow::Command::PeriphalControl:
-        Serial.println("Periphal control message");
+        DBGCHK(Verbose, SERIAL_DEBUG_KISCMESSAGES, "Periphal control message");
         break;
         // Pedale, Lenkung Buttons
     case kisc::protocol::espnow::Command::PeriphalFeedback:
+        float acc[3];
+        float ypr[3];
 //        Serial.println("Periphal feedback message");
 //        Serial.printf("Throttle: %d Motor Button: %d\n", message.peripheralFeedback.throttle, motorButton);
-        controller.setThrottle(message.peripheralFeedback.throttle);
-        controller.setBrake(message.peripheralFeedback.brake);
-        controller.setMotorButton(message.peripheralFeedback.motorButton);
+        if (!remoteControlActive) {
+            controller.setThrottle(message.peripheralFeedback.throttle);
+            controller.setBrake(message.peripheralFeedback.brake);
+            controller.setMotorButton(message.peripheralFeedback.motorButton);
+        }
+        acc[0] = message.peripheralFeedback.acc[0] / 100.0;
+        acc[1] = message.peripheralFeedback.acc[1] / 100.0;
+        acc[2] = message.peripheralFeedback.acc[2] / 100.0;
+        ypr[0] = message.peripheralFeedback.ypr[0] / 100.0;
+        ypr[1] = message.peripheralFeedback.ypr[1] / 100.0;
+        ypr[2] = message.peripheralFeedback.ypr[2] / 100.0;
+
+        controller.setAcc(acc);
+        controller.setYPR(ypr);
+        static bool bLastActive = false;
+        if (bLastActive != message.peripheralFeedback.nfcCardActive) {
+            if (message.peripheralFeedback.nfcCardActive) {
+                char uid[20];
+                sprintf(uid, "%02X %02X %02X %02X", message.peripheralFeedback.nfcCardUID[0], message.peripheralFeedback.nfcCardUID[1], message.peripheralFeedback.nfcCardUID[2], message.peripheralFeedback.nfcCardUID[3]);
+                DBGLOG(Verbose, "NFC Card active UID: %s", uid);                
+            } else {
+                DBGLOG(Verbose, "NFC Card not active");
+            }
+            bLastActive = message.peripheralFeedback.nfcCardActive;
+        }
+        break;
+    case kisc::protocol::espnow::Command::RemoteFeedback:
+        if (message.remoteFeedback.controllerConnected) {
+            DBGCHK(Verbose, SERIAL_DEBUG_KISCMESSAGES, "Remote feedback message, controller connected");
+            remoteControlActive = true;
+            controller.setThrottle(message.remoteFeedback.throttle);
+            controller.setBrake(message.remoteFeedback.brake);
+            controller.setMotorButton(message.remoteFeedback.motorButton);
+            if (message.remoteFeedback.gearUpButton) {
+                handleShiftUpClick();
+            } else if (message.remoteFeedback.gearDownButton) {
+                handleShiftDownClick();
+            }
+        } else {
+            DBGCHK(Warning, SERIAL_DEBUG_KISCMESSAGES, "Remote feedback message, controller not connected");
+            if (remoteControlActive) {  // Shutdown!!!!
+                controller.setThrottle(0);
+                controller.setBrake(0);
+                remoteControlActive = false;
+            }
+        }
         break;
     case kisc::protocol::espnow::Command::SoundLightControl:
-        Serial.println("Sound light control message");
+        DBGCHK(Verbose, SERIAL_DEBUG_KISCMESSAGES, "Sound light control message");
         break;
     case kisc::protocol::espnow::Command::SoundLightFeedback:
-        Serial.println("Sound light feedback message");
+        DBGCHK(Verbose, SERIAL_DEBUG_KISCMESSAGES, "Sound light feedback message");
         break;
     case kisc::protocol::espnow::Command::BTControl:
-        Serial.println("BT control message");
+        DBGCHK(Verbose, SERIAL_DEBUG_KISCMESSAGES, "BT control message");
         break;
     case kisc::protocol::espnow::Command::BTFeedback:
-        Serial.println("BT feedback message");
+        DBGCHK(Verbose, SERIAL_DEBUG_KISCMESSAGES, "BT feedback message");
         break;
     default:
-        Serial.printf("Unknown message %d\n", message.command); 
+        DBGCHK(Warning, SERIAL_DEBUG_KISCMESSAGES, "Unknown message %d", message.command);
+//        Serial.printf("Unknown message %d\n", message.command); 
         break;
     }
 
 }
 
 void guiTask(void* pvParameters) {
-    Serial.println("Starting GUI task");
+    DBGCHK(Info, SERIAL_DEBUG_GUI, "Starting GUI task");
     GUI gui(motorc, controller);
-    Serial.println("GUI initialized");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "GUI initialized");
     gui.init();
-    Serial.println("GUI created");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "GUI created");
     gui.create();
-    Serial.println("GUI task loop started");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "GUI task loop started");
     while (true) {
+
         gui.update();
 
         vTaskDelay(pdMS_TO_TICKS(10)); // Adjust the delay as needed
@@ -181,11 +244,11 @@ uint32_t lastHeartbeat = 0;
 
 void commTask(void* pvParameters) {
     int iSendInterval = 0;
-    Serial.println("Starting Comm task");
+    DBGLOG(Verbose, "Starting Comm task");
     onKiSCMessageReceived(recCallback);
     initESPNow();
-    Serial.printf("\n\n---- Dash Controller ----\n");
-    Serial.printf("MAC address: %s\n", WiFi.macAddress().c_str());
+    DBGLOG(Info, "---- Dash Controller ----");
+    DBGLOG(Info, "MAC address: %s\n", WiFi.macAddress().c_str());
     while (true) {
         loopESPNow();
         vTaskDelay(pdMS_TO_TICKS(5)); // Adjust the delay as needed
@@ -206,41 +269,41 @@ void commTask(void* pvParameters) {
 }
 
 void handleShiftUpClick() {
-    Serial.println("Shiftup Button clicked");
+    DBGLOG(Verbose, "Shiftup Button clicked");
     if ((controller.getDriveMode() != DriveMode::MOTOR_OFF) && (controller.getDriveMode() != DriveMode::PARKING)) {
         if (controller.getDriveMode() == DriveMode::NEUTRAL) {
-            Serial.println("Switching to drive");
+            DBGLOG(Verbose, "Switching to drive");
             controller.setDriveMode(DriveMode::DRIVE);
         } else if (controller.getDriveMode() == DriveMode::REVERSE) {
-            Serial.println("Switching to neutral");
+            DBGLOG(Verbose, "Switching to neutral");
             controller.setDriveMode(DriveMode::NEUTRAL);
         } else {
-            Serial.println("Already in drive!");
+            DBGLOG(Verbose, "Already in drive!");
         }
     } else if (controller.getDriveMode() == DriveMode::PARKING) {
-        Serial.println("Parking mode");
+        DBGLOG(Verbose, "Parking mode");
     } else {
-        Serial.println("Motor off");
+        DBGLOG(Verbose, "Motor off");
     }
 }
 
 void handleShiftDownClick() {
-    Serial.println("Shiftdown Button clicked");
+    DBGLOG(Verbose, "Shiftdown Button clicked");
     if ((controller.getDriveMode() != DriveMode::MOTOR_OFF) && (controller.getDriveMode() != DriveMode::PARKING)) {
         if (controller.getDriveMode() == DriveMode::NEUTRAL) {
-            Serial.println("Switching to reverse");
+            DBGLOG(Verbose, "Switching to reverse");
             controller.setDriveMode(DriveMode::REVERSE);
         } else if (controller.getDriveMode() == DriveMode::DRIVE) {
-            Serial.println("Switching to neutral");
+            DBGLOG(Verbose, "Switching to neutral");
             controller.setDriveMode(DriveMode::NEUTRAL);
         } else {
-            Serial.println("Already in reverse!");
+            DBGLOG(Verbose, "Already in reverse!");
         }
 
     } else if (controller.getDriveMode() == DriveMode::PARKING) {
-        Serial.println("Parking mode");
+        DBGLOG(Verbose, "Parking mode");
     } else {
-        Serial.println("Motor off");
+        DBGLOG(Verbose, "Motor off");
     }
 
 }
@@ -350,7 +413,25 @@ void setup() {
     esp_task_wdt_deinit();
     delay(500);
     Serial.begin(115200);
-    //Serial.setDebugOutput(true);
+    DBGINI(&Serial)
+    DBGINI(&Serial, ESP32Timestamp::TimestampSinceStart)
+  //    DBGINI(&Serial, ESP32Timestamp::TimestampSinceStart)
+    DBGLEV(SERIAL_DEFAULT_LOGLEVEL)
+    if (SERIAL_OUTPUT_ENABLED) {
+        DBGSTA
+    }
+    DBGLOG(Info, "---------------------------------------------------------------"
+                "---------")
+    DBGLOG(Info, "Enabled debug levels:")
+    DBGLOG(Error, "Error")
+    DBGLOG(Warning, "Warning")
+    DBGLOG(Info, "Info")
+    DBGLOG(Verbose, "Verbose")
+    DBGLOG(Debug, "Debug")
+    DBGLOG(Info, "---------------------------------------------------------------"
+               "---------")    
+
+   //Serial.setDebugOutput(true);
     delay(500);
     pinMode(PIN_LCD_BL, OUTPUT);
     digitalWrite(PIN_LCD_BL, HIGH);

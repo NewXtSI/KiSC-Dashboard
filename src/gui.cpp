@@ -4,6 +4,11 @@
 #include "hardware.h"
 #include "bootscreen.h"
 #include "dash.h"
+
+#include "globals.h"
+#define ESP32DEBUGGING
+#include <ESP32Logger.h>
+
 lv_display_t *lvgl_lcd_init(uint32_t hor_res, uint32_t ver_res);
 lv_display_t *lvgl_lcd_init2(uint32_t hor_res, uint32_t ver_res);
 lv_display_t *lvgl_lcd_init_espi(uint32_t hor_res, uint32_t ver_res);
@@ -14,7 +19,7 @@ GUI::GUI(Motor& motor, Controller& controller) : motor(motor), controller(contro
 
 }
 
-#define LV_TICK_PERIOD_MS 1
+#define LV_TICK_PERIOD_MS 2
 lv_display_t *display;
 
 static void lv_tick_task(void *arg) {
@@ -31,7 +36,7 @@ void GUI::init() {
     lv_init();
     display = lvgl_lcd_init2(240, 135);
     if (display == nullptr) {
-        Serial.println("Display initialization failed!!!!");
+         DBGCHK(Verbose, SERIAL_DEBUG_GUI, "Display initialization failed!!!!");
     }
     lv_obj_clean(lv_scr_act());
     lv_obj_t *label = lv_label_create(lv_scr_act());
@@ -43,13 +48,13 @@ void GUI::create() {
     Serial.printf("Creating GUI\n");
     activeScreen = new BootScreen();
     if (activeScreen != nullptr) {
-        Serial.printf("BootScreen created\n");
-        Serial.printf("Creating BootScreen\n");
+         DBGCHK(Verbose, SERIAL_DEBUG_GUI, "BootScreen created");
+         DBGCHK(Verbose, SERIAL_DEBUG_GUI, "Creating BootScreen");
         activeScreen->create();
-        Serial.printf("Activating BootScreen\n");
+         DBGCHK(Verbose, SERIAL_DEBUG_GUI, "Activating BootScreen");
         activeScreen->activate();
     } else {
-        Serial.printf("BootScreen creation failed\n");
+         DBGCHK(Verbose, SERIAL_DEBUG_GUI, "BootScreen creation failed");
     }
        /* Create and start a periodic timer interrupt to call lv_tick_inc */
     const esp_timer_create_args_t periodic_timer_args = {
@@ -59,7 +64,7 @@ void GUI::create() {
     esp_timer_handle_t periodic_timer;
     esp_timer_create(&periodic_timer_args, &periodic_timer);
     esp_timer_start_periodic(periodic_timer, LV_TICK_PERIOD_MS * 1000);    
-    Serial.printf("GUI created\n");
+     DBGCHK(Verbose, SERIAL_DEBUG_GUI, "GUI created");
 
     // Create and start a timer to switch to the dashboard screen after 5 seconds
     const esp_timer_create_args_t screenSwitchTimerArgs = {
@@ -72,13 +77,14 @@ void GUI::create() {
 }
 
 void GUI::switchScreen(int screenId) {
+ DBGCHK(Verbose, SERIAL_DEBUG_GUI, "Switching screen to %d", screenId);    
     switch (screenId) {
         case 0:
 //            activeScreen = &bootScreen;
             break;
         case 1:
             activeScreen = new Dash();
-            activeScreen->create();
+//            activeScreen->create();
             break;
     }
     activeScreen->activate();
@@ -92,6 +98,7 @@ void GUI::screenSwitchCallback(void* arg) {
 
 void GUI::update() {
     if (screenId == 1) {
+        ((Dash*)(activeScreen))->setBlinkHigh(controller.getIndicatorOn());
         if (!motor.isConnected()) {
             ((Dash*)(activeScreen))->setSpeed(0);
             ((Dash*)(activeScreen))->setThrottle(controller.getCompensatedThrottle());
@@ -111,13 +118,13 @@ void GUI::update() {
 
         ((Dash*)(activeScreen))->setDriveMode(controller.getDriveMode());
 
-        if (controller.getIndicatorOn()) {
+/*        if (controller.getIndicatorOn()) {
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_INDICATOR_LEFT);
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_INDICATOR_RIGHT);
         } else {
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_INDICATOR_LEFT);
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() & ~DASH_SYMBOL_INDICATOR_RIGHT);
-        }
+        }*/
         if (controller.getLightStates().lowBeam) {
             ((Dash*)(activeScreen))->setSymbols(((Dash*)(activeScreen))->getSymbols() | DASH_SYMBOL_LOW_BEAM);
         } else {

@@ -1,8 +1,9 @@
 #define DISPLAY_IPS
 
+#include <Arduino.h>
 #include <lvgl.h>
 #include "hardware.h"
-#include "ArduinoLog.h"
+
 
 #include <driver/spi_master.h>
 #include <esp_lcd_panel_io.h>
@@ -13,6 +14,10 @@
 #include <misc/lv_timer_private.h>
 #include <indev/lv_indev_private.h>
 #include <memory>
+
+#include "globals.h"
+#define ESP32DEBUGGING
+#include <ESP32Logger.h>
 
 std::pair<void*, void*> draw_buffers = {nullptr, nullptr};
 esp_lcd_panel_handle_t panel_handle = nullptr;
@@ -82,8 +87,8 @@ lv_display_t *lvgl_lcd_init2(uint32_t hor_res, uint32_t ver_res) {
         .max_transfer_sz = 7,
         .flags = 0,
         .intr_flags = 0};
-    Serial.printf("spi_bus_config: mosi_io_num:%d, miso_io_num:%d, sclk_io_num:%d, quadwp_io_num:%d, quadhd_io_num:%d, max_transfer_sz:%d, flags:0x%08x, intr_flags:0x%04x\n", spi_bus_config.mosi_io_num, spi_bus_config.miso_io_num, spi_bus_config.sclk_io_num, spi_bus_config.quadwp_io_num, spi_bus_config.quadhd_io_num, spi_bus_config.max_transfer_sz, spi_bus_config.flags, spi_bus_config.intr_flags);
-    log_d("spi_bus_config: mosi_io_num:%d, miso_io_num:%d, sclk_io_num:%d, quadwp_io_num:%d, quadhd_io_num:%d, max_transfer_sz:%d, flags:0x%08x, intr_flags:0x%04x", spi_bus_config.mosi_io_num, spi_bus_config.miso_io_num, spi_bus_config.sclk_io_num, spi_bus_config.quadwp_io_num, spi_bus_config.quadhd_io_num, spi_bus_config.max_transfer_sz, spi_bus_config.flags, spi_bus_config.intr_flags);
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "spi_bus_config: mosi_io_num:%d, miso_io_num:%d, sclk_io_num:%d, quadwp_io_num:%d, quadhd_io_num:%d, max_transfer_sz:%d, flags:0x%08x, intr_flags:0x%04x\n", spi_bus_config.mosi_io_num, spi_bus_config.miso_io_num, spi_bus_config.sclk_io_num, spi_bus_config.quadwp_io_num, spi_bus_config.quadhd_io_num, spi_bus_config.max_transfer_sz, spi_bus_config.flags, spi_bus_config.intr_flags);
+//    log_d("spi_bus_config: mosi_io_num:%d, miso_io_num:%d, sclk_io_num:%d, quadwp_io_num:%d, quadhd_io_num:%d, max_transfer_sz:%d, flags:0x%08x, intr_flags:0x%04x", spi_bus_config.mosi_io_num, spi_bus_config.miso_io_num, spi_bus_config.sclk_io_num, spi_bus_config.quadwp_io_num, spi_bus_config.quadhd_io_num, spi_bus_config.max_transfer_sz, spi_bus_config.flags, spi_bus_config.intr_flags);
     ESP_ERROR_CHECK_WITHOUT_ABORT(spi_bus_initialize(SPI3_HOST, &spi_bus_config, SPI_DMA_CH_AUTO));
 
     // Attach the LCD controller to the SPI bus
@@ -103,8 +108,8 @@ lv_display_t *lvgl_lcd_init2(uint32_t hor_res, uint32_t ver_res) {
             .octal_mode = false,
             .lsb_first = false}};
     
-    log_d("io_spi_config: cs_gpio_num:%d, dc_gpio_num:%d, spi_mode:%d, pclk_hz:%d, trans_queue_depth:%d, user_ctx:0x%08x, on_color_trans_done:0x%08x, lcd_cmd_bits:%d, lcd_param_bits:%d, flags:{dc_as_cmd_phase:%d, dc_low_on_data:%d, octal_mode:%d, lsb_first:%d}", io_spi_config.cs_gpio_num, io_spi_config.dc_gpio_num, io_spi_config.spi_mode, io_spi_config.pclk_hz, io_spi_config.trans_queue_depth, io_spi_config.user_ctx, io_spi_config.on_color_trans_done, io_spi_config.lcd_cmd_bits, io_spi_config.lcd_param_bits, io_spi_config.flags.dc_as_cmd_phase, io_spi_config.flags.dc_low_on_data, io_spi_config.flags.octal_mode, io_spi_config.flags.lsb_first);
-    Serial.printf("io_spi_config: cs_gpio_num:%d, dc_gpio_num:%d, spi_mode:%d, pclk_hz:%d, trans_queue_depth:%d, user_ctx:0x%08x, on_color_trans_done:0x%08x, lcd_cmd_bits:%d, lcd_param_bits:%d, flags:{dc_as_cmd_phase:%d, dc_low_on_data:%d, octal_mode:%d, lsb_first:%d}\n", io_spi_config.cs_gpio_num, io_spi_config.dc_gpio_num, io_spi_config.spi_mode, io_spi_config.pclk_hz, io_spi_config.trans_queue_depth, io_spi_config.user_ctx, io_spi_config.on_color_trans_done, io_spi_config.lcd_cmd_bits, io_spi_config.lcd_param_bits, io_spi_config.flags.dc_as_cmd_phase, io_spi_config.flags.dc_low_on_data, io_spi_config.flags.octal_mode, io_spi_config.flags.lsb_first);
+    //log_d("io_spi_config: cs_gpio_num:%d, dc_gpio_num:%d, spi_mode:%d, pclk_hz:%d, trans_queue_depth:%d, user_ctx:0x%08x, on_color_trans_done:0x%08x, lcd_cmd_bits:%d, lcd_param_bits:%d, flags:{dc_as_cmd_phase:%d, dc_low_on_data:%d, octal_mode:%d, lsb_first:%d}", io_spi_config.cs_gpio_num, io_spi_config.dc_gpio_num, io_spi_config.spi_mode, io_spi_config.pclk_hz, io_spi_config.trans_queue_depth, io_spi_config.user_ctx, io_spi_config.on_color_trans_done, io_spi_config.lcd_cmd_bits, io_spi_config.lcd_param_bits, io_spi_config.flags.dc_as_cmd_phase, io_spi_config.flags.dc_low_on_data, io_spi_config.flags.octal_mode, io_spi_config.flags.lsb_first);
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "io_spi_config: cs_gpio_num:%d, dc_gpio_num:%d, spi_mode:%d, pclk_hz:%d, trans_queue_depth:%d, user_ctx:0x%08x, on_color_trans_done:0x%08x, lcd_cmd_bits:%d, lcd_param_bits:%d, flags:{dc_as_cmd_phase:%d, dc_low_on_data:%d, octal_mode:%d, lsb_first:%d}\n", io_spi_config.cs_gpio_num, io_spi_config.dc_gpio_num, io_spi_config.spi_mode, io_spi_config.pclk_hz, io_spi_config.trans_queue_depth, io_spi_config.user_ctx, io_spi_config.on_color_trans_done, io_spi_config.lcd_cmd_bits, io_spi_config.lcd_param_bits, io_spi_config.flags.dc_as_cmd_phase, io_spi_config.flags.dc_low_on_data, io_spi_config.flags.octal_mode, io_spi_config.flags.lsb_first);
     esp_lcd_panel_io_handle_t io_handle;
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)SPI3_HOST, &io_spi_config, &io_handle));
 
@@ -116,26 +121,26 @@ lv_display_t *lvgl_lcd_init2(uint32_t hor_res, uint32_t ver_res) {
         .flags = {
             .reset_active_high = false},
         .vendor_config = NULL};
-    log_d("panel_dev_config: reset_gpio_num:%d, color_space:%d, bits_per_pixel:%d, flags:{reset_active_high:%d}, vendor_config:0x%08x", panel_dev_config.reset_gpio_num, panel_dev_config.color_space, panel_dev_config.bits_per_pixel, panel_dev_config.flags.reset_active_high, panel_dev_config.vendor_config);
-    Serial.printf("panel_dev_config: reset_gpio_num:%d, color_space:%d, bits_per_pixel:%d, flags:{reset_active_high:%d}, vendor_config:0x%08x\n", panel_dev_config.reset_gpio_num, panel_dev_config.color_space, panel_dev_config.bits_per_pixel, panel_dev_config.flags.reset_active_high, panel_dev_config.vendor_config);
+    //log_d("panel_dev_config: reset_gpio_num:%d, color_space:%d, bits_per_pixel:%d, flags:{reset_active_high:%d}, vendor_config:0x%08x", panel_dev_config.reset_gpio_num, panel_dev_config.color_space, panel_dev_config.bits_per_pixel, panel_dev_config.flags.reset_active_high, panel_dev_config.vendor_config);
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "panel_dev_config: reset_gpio_num:%d, color_space:%d, bits_per_pixel:%d, flags:{reset_active_high:%d}, vendor_config:0x%08x\n", panel_dev_config.reset_gpio_num, panel_dev_config.color_space, panel_dev_config.bits_per_pixel, panel_dev_config.flags.reset_active_high, panel_dev_config.vendor_config);
 
-    Serial.printf("esp_lcd_new_panel_st7789\n");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "esp_lcd_new_panel_st7789\n");
     ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_dev_config, &panel_handle));
-    Serial.printf("esp_lcd_panel_reset\n");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "esp_lcd_panel_reset\n");
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
-    Serial.printf("esp_lcd_panel_init\n");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "esp_lcd_panel_init\n");
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
 
     // 4. Adding manufacturer specific initialization 
 
-    Serial.printf("esp_lcd_panel_invert_color\n");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "esp_lcd_panel_invert_color\n");
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));
-    Serial.printf("esp_lcd_panel_swap_xy\n");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "esp_lcd_panel_swap_xy\n");
     ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));
-    Serial.printf("esp_lcd_panel_mirror\n");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "esp_lcd_panel_mirror\n");
 
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, false));
-    Serial.printf("esp_lcd_panel_set_gap\n");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "esp_lcd_panel_set_gap\n");
     ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 40, 53));    
 //    esp_lcd_panel_set_gap(panel_handle,40,52);
 #ifdef DISPLAY_IPS
@@ -152,7 +157,7 @@ lv_display_t *lvgl_lcd_init2(uint32_t hor_res, uint32_t ver_res) {
     ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, DISPLAY_GAP_X, DISPLAY_GAP_Y));
 #endif
     // Turn display on
-    Serial.printf("esp_lcd_panel_disp_on_off\n");
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "esp_lcd_panel_disp_on_off\n");
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    
 
 

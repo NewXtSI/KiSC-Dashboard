@@ -2,6 +2,7 @@
 //#include "../fonts/Includes/Arcade_54.c"
 #include "../fonts/Includes/Federals_Chrome_Ital_54.c"
 
+#include "globals.h"
 LV_IMAGE_DECLARE(indicator_left);
 LV_IMAGE_DECLARE(indicator_right);
 LV_IMAGE_DECLARE(check_engine);
@@ -12,9 +13,16 @@ LV_IMAGE_DECLARE(fuel_power);
 LV_IMAGE_DECLARE(fuel_power_16);
 LV_IMAGE_DECLARE(low_beam);
 
-Dash::Dash() : Screen() {}
+Dash::Dash() : Screen() {
+
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "Dash::Dash()");
+    init();
+    create();
+}
 
 void Dash::init() {
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "Dash::init()");
+    guiInitialized = false;
     screen = lv_obj_create(NULL);
     setSymbols(0x000000);
 }
@@ -22,15 +30,26 @@ void Dash::init() {
 //LV_FONT_DECLARE(Arcade_54)
 LV_FONT_DECLARE(Federals_Chrome_Ital_54)
 
+void setObjectVisible(lv_obj_t *obj, bool visible) {
+    if (visible) {
+        if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN))
+            lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        if (!lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN))
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
 void Dash::create() {
+    DBGCHK(Verbose, SERIAL_DEBUG_GUI, "Dash::create()");
 
     // Set the background to dark
     lv_obj_set_style_bg_color(screen, lv_color_hex(0x020202), 0);
     battery_bar = lv_bar_create(screen);
     lv_obj_set_size(battery_bar, 15, 102);
     lv_obj_set_pos(battery_bar, 5, 5);
-    lv_bar_set_range(battery_bar, 30000, 42000);    
-    lv_bar_set_value(battery_bar, 40000, LV_ANIM_ON);
+    lv_bar_set_range(battery_bar, 0, 4);    
+    lv_bar_set_value(battery_bar, 0, LV_ANIM_ON);
     lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);    
 
     temperature_bar = lv_bar_create(screen);
@@ -115,6 +134,9 @@ void Dash::create() {
     fuel_power_16_img = lv_img_create(screen);
     lv_img_set_src(fuel_power_16_img, &fuel_power_16);
     lv_obj_set_pos(fuel_power_16_img, 5, 135-16);
+
+    batteryAnimRunning = false;
+    guiInitialized = true;
 }
  
 void Dash::refreshStates() {
@@ -127,9 +149,25 @@ void Dash::refreshStates() {
     lv_obj_invalidate(check_engine_img);
     lv_obj_invalidate(indicator_right_img);
     lv_obj_invalidate(indicator_left_img);
+    lv_obj_invalidate(drivemode_label);
+    lv_obj_invalidate(speed_label);
+    lv_obj_invalidate(power_bar);
+    lv_obj_invalidate(throttle_bar);
+    lv_obj_invalidate(temperature_bar);
+    lv_obj_invalidate(battery_bar);
+}
+
+static void set_battery_gauge(void * bar, int32_t bat)
+{
+    lv_bar_set_value((lv_obj_t *)bar, bat, LV_ANIM_ON);
+    Serial.printf("Battery for gauge: %d\n", bat);
 }
 
 void Dash::update() {
+//    DBGCHK(Debug, SERIAL_DEBUG_GUI, "Dash::update()");
+    if (!guiInitialized) {
+        return;
+    }
     if (isScreenActivated())  {
     // Check Symbols
     if (getSymbols() & DASH_SYMBOL_INDICATOR_LEFT) {
@@ -221,8 +259,8 @@ void Dash::update() {
     }
     refreshStates();
 
-        if (speed_label != nullptr) {
-            
+//        if (speed_label != nullptr) {
+  {          
             
             lv_label_set_text_fmt(speed_label, "%d", (int)speed);
 
@@ -230,17 +268,81 @@ void Dash::update() {
             lv_bar_set_value(power_bar, power, LV_ANIM_ON);
             lv_bar_set_value(temperature_bar, (int16_t)(temperature), LV_ANIM_ON);
 
+/*
+#define BAT_LVL5                (390 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // Green blink:  no beep
+#define BAT_LVL4                (380 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // Yellow:       no beep
+#define BAT_LVL3                (370 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // Yellow blink: no beep 
+#define BAT_LVL2                (360 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // Red:          gently beep at this voltage level. [V*100/cell]. In this case 3.60 V/cell
+#define BAT_LVL1                (350 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // Red blink:    fast beep. Your battery is almost empty. Charge now! [V*100/cell]. In this case 3.50 V/cell
+#define BAT_DEAD                (337 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // All leds off: undervoltage poweroff. (while not driving) [V*100/cell]. In this case 3.37 V/cell
+*/                
+                uint8_t batValue = (uint8_t)battery;    // Battery in V
+                if (battery > 39) {
+                    batValue = 5;
+                } else if (battery > 38) {
+                    batValue = 4;
+                } else if (battery > 37) {
+                    batValue = 3;
+                } else if (battery > 36) {
+                    batValue = 2;
+                } else if (battery > 35) {
+                    batValue = 1;
+                } else {
+                    batValue = 0;
+                }
+
             if (getSymbols() & DASH_SYMBOL_CHARGING) {
                 lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C970C), LV_PART_INDICATOR);
-                lv_bar_set_value(battery_bar, (int16_t)battery*1000, LV_ANIM_ON);
                 setSymbols(getSymbols() & ~DASH_SYMBOL_FUEL_POWER);
+/*                if (!blinkHigh) {
+                    lv_bar_set_value(battery_bar, 0, LV_ANIM_OFF);
+                } else {
+                    lv_bar_set_value(battery_bar, batValue, LV_ANIM_ON);
+                }*/
+                if (!batteryAnimRunning) {
+                    Serial.printf("Starting charge animation...\n");
+                    lv_anim_init(&batteryAnim);
+                    lv_anim_set_exec_cb(&batteryAnim, set_battery_gauge);
+                    lv_anim_set_duration(&batteryAnim, 1000);
+//                    lv_anim_set_playback_duration(&batteryAnim, 1000);
+                    lv_anim_set_var(&batteryAnim, battery_bar);
+                    lv_bar_set_range(battery_bar, 0, 100);    
+                    lv_anim_set_values(&batteryAnim, 0, 100);
+                    lv_anim_path_ease_in_out(&batteryAnim);
+                    lv_anim_set_repeat_count(&batteryAnim, LV_ANIM_REPEAT_INFINITE);
+                    lv_anim_set_repeat_delay(&batteryAnim, 500);   
+                                     
+                    lv_anim_start(&batteryAnim);
+                    batteryAnimRunning = true;
+                }
+
             } else {
-                if (battery < 32) {
-                    lv_bar_set_value(battery_bar, 31000, LV_ANIM_ON);
+                if (batteryAnimRunning) {
+                    lv_anim_delete(&battery_bar, nullptr);
+                    batteryAnimRunning = false;
+                }
+
+                if(lv_obj_has_flag(battery_bar, LV_OBJ_FLAG_HIDDEN)) {
+                    lv_obj_remove_flag(battery_bar, LV_OBJ_FLAG_HIDDEN);
+                }
+
+                if (batValue <= 1) {
+                    lv_bar_set_value(battery_bar, batValue, LV_ANIM_ON);
                     lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0xFF0000), LV_PART_INDICATOR);
                     setSymbols(getSymbols() | DASH_SYMBOL_FUEL_POWER);
+                    if (!blinkHigh) {
+                        if(!lv_obj_has_flag(battery_bar, LV_OBJ_FLAG_HIDDEN)) {
+                            lv_obj_add_flag(battery_bar, LV_OBJ_FLAG_HIDDEN);
+                        }
+                    } else {
+                        if(lv_obj_has_flag(battery_bar, LV_OBJ_FLAG_HIDDEN)) {
+                            lv_obj_remove_flag(battery_bar, LV_OBJ_FLAG_HIDDEN);
+                        }
+                    }
+
                 } else {
-                   lv_bar_set_value(battery_bar, (int16_t)battery*1000, LV_ANIM_ON);
+                    lv_bar_set_range(battery_bar, 0, 5);    
+                    lv_bar_set_value(battery_bar, batValue, LV_ANIM_ON);
                     lv_obj_set_style_bg_color(battery_bar, lv_color_hex(0x0C978E), LV_PART_INDICATOR);
                     setSymbols(getSymbols() & ~DASH_SYMBOL_FUEL_POWER);
                 }
@@ -266,5 +368,5 @@ void Dash::update() {
         }
     }
 
-//    lv_task_handler();
+    lv_task_handler();
 }

@@ -4,14 +4,35 @@
 #include <mutex>
 #include <atomic>
 #include <chrono>
+#include <esp_task_wdt.h>
+#include <esp_system.h>
+#include "soc/rtc_wdt.h"
+#include "esp_task_wdt.h"
+#define ESP32DEBUGGING
+#include <ESP32Logger.h>
 
 std::mutex controller_mtx;
 std::atomic<bool> controller_running(true);
+
+#define BAT_CALIB_REAL_VOLTAGE  3691      // input voltage measured by multimeter (multiplied by 100). In this case 43.00 V * 100 = 4300
+#define BAT_CALIB_ADC           1377      // adc-value measured by mainboard (value nr 5 on UART debug output)
+#define BAT_CELLS               10        // battery number of cells. Normal Hoverboard battery: 10s
+
+
+#define BAT_LVL5                (390 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // in Volt: 
+#define BAT_LVL4                (380 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // Yellow:       no beep
+#define BAT_LVL3                (370 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // Yellow blink: no beep 
+#define BAT_LVL2                (360 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // Red:          gently beep at this voltage level. [V*100/cell]. In this case 3.60 V/cell
+#define BAT_LVL1                (350 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // Red blink:    fast beep. Your battery is almost empty. Charge now! [V*100/cell]. In this case 3.50 V/cell
+#define BAT_DEAD                (337 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE    // All leds off: undervoltage poweroff. (while not driving) [V*100/cell]. In this case 3.37 V/cell
+
 
 void Controller::periodicTask() {
     while (controller_running) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         taskYIELD();
+        rtc_wdt_feed();
+        esp_task_wdt_reset();        
         std::lock_guard<std::mutex> lock(controller_mtx);
         compute();
 
@@ -51,57 +72,59 @@ Controller::getCompensatedThrottle() {
     if (this->driveMode == MOTOR_OFF) {
         return 0;
     }
+    if (this->throttle < 15)
+        return 0;
     return this->throttle;
 }
 
 void 
 Controller::setDriveMode(DriveMode mode) {
-    Serial.printf("Setting drive mode to %d\n", mode);
+    DBGCHK(Verbose, SERIAL_DEBUG_CONTROLLER, "Setting drive mode to %d\n", mode);
     switch (mode) {
         case MOTOR_OFF:
-            Serial.printf("Motor off\n");
+            DBGCHK(Info, SERIAL_DEBUG_CONTROLLER, "Motor off");
             break;
         case NEUTRAL:
-            Serial.printf("Neutral\n");
+            DBGCHK(Info, SERIAL_DEBUG_CONTROLLER, "Neutral");
             break;
         case DRIVE:
             if (!motorConnected) {
-                Serial.printf("Motor error, cannot switch to drive!\n");
+                DBGCHK(Error, SERIAL_DEBUG_CONTROLLER, "Motor error, cannot switch to drive!");
                 return;
                 }
             if (abs(this->realRPM) > 50) {
-                Serial.printf("Cannot switch to drive while moving!\n");
+                DBGCHK(Error, SERIAL_DEBUG_CONTROLLER, "Cannot switch to drive while moving!");
                 return;
             }
-            Serial.printf("Drive\n");
+            DBGCHK(Info, SERIAL_DEBUG_CONTROLLER, "Drive");
             break;
         case REVERSE:
             if (!motorConnected) {
-                Serial.printf("Motor error, cannot switch to reverse!\n");
+                DBGCHK(Error, SERIAL_DEBUG_CONTROLLER, "Motor error, cannot switch to reverse!");
                 return;
             }
             if (abs(this->realRPM) > 50) {
-                Serial.printf("Cannot switch to reverse while moving!\n");
+                DBGCHK(Error, SERIAL_DEBUG_CONTROLLER, "Cannot switch to reverse while moving!");
                 return;
             }
-            Serial.printf("Reverse\n");
+            DBGCHK(Info, SERIAL_DEBUG_CONTROLLER, "Reverse");
             break;
         case PARKING:
             if (!getMotorConnected()) {
-                Serial.printf("Motor error, cannot switch to parking!\n");
+                DBGCHK(Error, SERIAL_DEBUG_CONTROLLER, "Motor error, cannot switch to parking!");
                 return;
             }
             if (abs(this->realRPM) > 50) {
-                Serial.printf("Cannot switch to parking while moving!\n");
+                DBGCHK(Error, SERIAL_DEBUG_CONTROLLER, "Cannot switch to parking while moving!");
                 return;
             }
-            Serial.printf("Parking\n");
+            DBGCHK(Info, SERIAL_DEBUG_CONTROLLER, "Parking");
             break;
         default:
-            Serial.printf("Invalid drive mode\n");
+            DBGCHK(Warning, SERIAL_DEBUG_CONTROLLER, "Invalid drive mode");
             return;
     }
-    Serial.printf("really setting drive mode to %d\n", mode);
+    DBGCHK(Verbose, SERIAL_DEBUG_CONTROLLER, "really setting drive mode to %d", mode);
     this->driveMode = mode;
 }
 
@@ -184,24 +207,43 @@ void Controller::compute() {
             this->calculatedTorqueLeft = -0;
             this->calculatedTorqueRight = -0;
         } else {
+            int16_t throttle;
+            static int16_t lastThrottle = 0;
+
             int16_t targetTorque = 0;
             int16_t leftTargetTorque = 0;
+            static int16_t lastLeftTargetTorque = 0;
 /*          if (this->brake > 0) {      // Bremsen
                 if (abs(speed) < 0.5) {  // Standstill
 
                 } else {    // Abbremsen
 
                 }
-            } else */if (this->throttle > 15) {    // Beschleunigen
-                targetTorque = this->getCompensatedThrottle();
+                
+            } else */
+            throttle = this->getCompensatedThrottle();
+            if (throttle > 10) {    // Beschleunigen
+                targetTorque = throttle;
                 leftTargetTorque = map(targetTorque,0,1023,0,globalSettings.maxAcceleration);
                 if (leftTargetTorque < 5) {
                     leftTargetTorque = 0;
+                }
+                if ((throttle != lastThrottle) || (leftTargetTorque != lastLeftTargetTorque)) {
+                    lastThrottle = throttle;
+                    lastLeftTargetTorque = leftTargetTorque;
+                    DBGCHK(Verbose, SERIAL_DEBUG_CONTROLLER_CALC, "Throttle: %d, target: %d", targetTorque, leftTargetTorque);
+                }
+
+            } else {
+                if (throttle != lastThrottle) {
+                    lastThrottle = throttle;
+                    DBGCHK(Verbose, SERIAL_DEBUG_CONTROLLER_CALC, "Throttle: %d too low, ignoring", throttle);
                 }
             }
             this->calculatedTorqueLeft = leftTargetTorque;
             this->calculatedTorqueRight = -leftTargetTorque;
         }
+
     } else if (this->driveMode == REVERSE) {
         int16_t rpm = this->getRealRPM();
         float speed = (abs(rpm) * wheelCircumference) / 6000.0;      //  Geschwindigkeit in km/h

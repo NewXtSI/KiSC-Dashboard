@@ -31,23 +31,19 @@ public:
     void setSettings(int mode);
     void compute();
 
-    // set the throttle
-    void        setThrottle(int throttle);
-    // get the throttle
-    int         getThrottle();
-    int         getCompensatedThrottle();
-    // set the brake
-    void        setBrake(int brake);
-    // get the brake
-    int         getBrake();
-    // set the steering
-    void        setSteering(int steering);
-    // get the steering
-    int         getSteering();
+    void                setThrottle(int throttle);
+    int                 getThrottle();
+    int                 getCompensatedThrottle();
+
+    void                setBrake(int brake);
+    int                 getBrake();
+    
+    void                setSteering(int steering);
+    int                 getSteering();
 
     // return -1023 to 1023, MOTOR_FLYWHEEL for flywheel
-    int         getLeftSpeed();
-    int         getRightSpeed();
+    int                 getLeftSpeed();
+    int                 getRightSpeed();
 
     void                setDriveMode(DriveMode mode);
     DriveMode           getDriveMode();
@@ -71,6 +67,9 @@ public:
     int                 getCalculatedTorqueRight() { return calculatedTorqueRight; }
     void                setMotorConnected(bool connected);
     bool                getMotorConnected() { return motorConnected; }
+
+    void                setYPR(float *ypr) { memcpy(this->ypr, ypr, sizeof(float) * 3); }
+    void                setAcc(float *acc) { memcpy(this->acc, acc, sizeof(float) * 3); }
 private:
     LightStates         lightStates;
     std::thread         periodicThread;
@@ -78,11 +77,8 @@ private:
     std::mutex          controller_mtx;
 
     DriveMode           driveMode;
-    // throttle
     int                 throttle;
-    // brake
     int                 brake;
-    // steering
     int                 steering;
     int                 leftSpeed;
     int                 rightSpeed;
@@ -97,6 +93,9 @@ private:
     bool                espWorking;
     bool                launchControlActive;
 
+
+    float               ypr[3];
+    float               acc[3];
     void                periodicTask();
 };
 

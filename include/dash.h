@@ -12,8 +12,12 @@ public:
     void setTemperature(float temperature) { this->temperature = temperature; }
     void setBattery(float battery) { this->battery = battery; }
     void setDriveMode(DriveMode mode) { this->driveMode = mode; }
-    
+    void setBlinkHigh(bool blink) { blinkHigh = blink; }
 private:
+    bool        blinkHigh;
+    lv_anim_t   batteryAnim;
+    bool        batteryAnimRunning;
+    bool guiInitialized;
     float       speed;
     int         throttle;
     float       power;
@@ -39,6 +43,7 @@ private:
     lv_obj_t * beam_img;
     lv_obj_t * fuel_power_img;
     lv_obj_t * fuel_power_16_img;
+
 
     void refreshStates();
     void init() override;

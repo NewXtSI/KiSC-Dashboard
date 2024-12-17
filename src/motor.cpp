@@ -118,7 +118,7 @@ Motor::setRpm(int rpmLeft, int rpmRight) {
     this->rpmLeft = rpmLeft;
     this->rpmRight = rpmRight;
     calcSpeed();
-    Serial.printf("Speed: %f / %f RPM: %d / %d\n", this->speed[0], this->speed[1], this->rpmLeft, this->rpmRight);
+//    Serial.printf("Speed: %f / %f RPM: %d / %d\n", this->speed[0], this->speed[1], this->rpmLeft, this->rpmRight);
 }
 
 double Motor::getSpeed(uint8_t motor) {
