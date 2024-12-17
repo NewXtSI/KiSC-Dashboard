@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include "../KiSC-ESP-Now-Protocol/include/kisc-espnow.h"
+//#include "../KiSC-ESP-Now-Protocol/include/kisc-espnow.h"
+#include "../KiSC-ESP-Now-Protocol/include/kiSCprotov2.h"
+
 #include "gui.h"
 #include <motor.h>
 #include <controller.h>
@@ -16,20 +18,7 @@
 #include <ESP32Logger.h>
 
 
-#define BLUETOOTH_HID           0
-
-#if BLUETOOTH_HID
-#include "esp_bt_defs.h"
-#include "esp_gap_ble_api.h"
-#include "esp_gatts_api.h"
-#include "esp_gatt_defs.h"
-#include "esp_bt_main.h"
-#include "esp_bt_device.h"
-
-#include "esp_bt_main.h"
-#include "esp_hidh_api.h"
-#include "esp_hidh.h"
-#endif
+#if 0
 
 Motor       motorc;
 Controller  controller;
@@ -308,105 +297,9 @@ void handleShiftDownClick() {
 
 }
 
-#if BLUETOOTH_HID
-#if CONFIG_BT_HID_HOST_ENABLED
-#pragma warning "HID Host enabled"
-#endif    
-#if CONFIG_BT_BLE_ENABLED
-#pragma warning "BLE enabled"
 #endif
 
-void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
-{
-    esp_hidh_event_t event = (esp_hidh_event_t)id;
-    esp_hidh_event_data_t *param = (esp_hidh_event_data_t *)event_data;
-    switch (event) {
-    case ESP_HIDH_OPEN_EVENT: {
-    }
-    break;
-    case ESP_HIDH_CLOSE_EVENT: {
-    }
-    }
-}
-
-
-void esp_hid_scan_results_free(esp_hid_scan_result_t *results)
-{
-    esp_hid_scan_result_t *r = NULL;
-    while (results) {
-        r = results;
-        results = results->next;
-        if (r->name != NULL) {
-            free((char *)r->name);
-        }
-        free(r);
-    }
-}
-
-void hid_demo_task(void *pvParameters)
-{
-    size_t results_len = 0;
-    esp_hid_scan_result_t *results = NULL;
-    ESP_LOGI(TAG, "SCAN...");
-    //start scan for HID devices
-    esp_hid_scan(SCAN_DURATION_SECONDS, &results_len, &results);
-    ESP_LOGI(TAG, "SCAN: %u results", results_len);
-    if (results_len) {
-        esp_hid_scan_result_t *r = results;
-        esp_hid_scan_result_t *cr = NULL;
-        while (r) {
-            printf("  %s: " ESP_BD_ADDR_STR ", ", (r->transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ", ESP_BD_ADDR_HEX(r->bda));
-            printf("RSSI: %d, ", r->rssi);
-            printf("USAGE: %s, ", esp_hid_usage_str(r->usage));
-#if CONFIG_BT_BLE_ENABLED
-            if (r->transport == ESP_HID_TRANSPORT_BLE) {
-                cr = r;
-                printf("APPEARANCE: 0x%04x, ", r->ble.appearance);
-                printf("ADDR_TYPE: '%s', ", ble_addr_type_str(r->ble.addr_type));
-            }
-#endif /* CONFIG_BT_BLE_ENABLED */
-#if CONFIG_BT_NIMBLE_ENABLED
-            if (r->transport == ESP_HID_TRANSPORT_BLE) {
-                cr = r;
-                printf("APPEARANCE: 0x%04x, ", r->ble.appearance);
-                printf("ADDR_TYPE: '%d', ", r->ble.addr_type);
-            }
-#endif /* CONFIG_BT_BLE_ENABLED */
-#if CONFIG_BT_HID_HOST_ENABLED
-            if (r->transport == ESP_HID_TRANSPORT_BT) {
-                cr = r;
-                printf("COD: %s[", esp_hid_cod_major_str(r->bt.cod.major));
-                esp_hid_cod_minor_print(r->bt.cod.minor, stdout);
-                printf("] srv 0x%03x, ", r->bt.cod.service);
-                print_uuid(&r->bt.uuid);
-                printf(", ");
-                if (strncmp(r->name, remote_device_name, strlen(remote_device_name)) == 0) {
-                    break;
-                }
-            }
-#endif /* CONFIG_BT_HID_HOST_ENABLED */
-            printf("NAME: %s ", r->name ? r->name : "");
-            printf("\n");
-            r = r->next;
-        }
-
-#if CONFIG_BT_HID_HOST_ENABLED
-        if (cr && strncmp(cr->name, remote_device_name, strlen(remote_device_name)) == 0) {
-            esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);
-        }
-#else
-        if (cr) {
-            //open the last result
-            esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);
-        }
-#endif // CONFIG_BT_HID_HOST_ENABLED
-        //free the results
-        esp_hid_scan_results_free(results);
-    }
-    vTaskDelete(NULL);
-}
-#endif
-
+KiSCProtoV2Master kiscProto("KiSCProtoV2Master");
 void setup() {
   // put your setup code here, to run once:
     esp_task_wdt_init(60, true);
@@ -430,8 +323,10 @@ void setup() {
     DBGLOG(Debug, "Debug")
     DBGLOG(Info, "---------------------------------------------------------------"
                "---------")    
-
+kiscProto.start();
+    //Serial.begin(115200);
    //Serial.setDebugOutput(true);
+#if 0   
     delay(500);
     pinMode(PIN_LCD_BL, OUTPUT);
     digitalWrite(PIN_LCD_BL, HIGH);
@@ -439,27 +334,17 @@ void setup() {
     shiftDownButton.attachClick(handleShiftDownClick);
     xTaskCreatePinnedToCore(guiTask, "GUI Task", 4096*3, NULL, 3, NULL, 0);
     xTaskCreatePinnedToCore(commTask, "COMM Task", 4096, NULL, 3, NULL, 1);
+#endif
 
-#if BLUETOOTH_HID
-    esp_bluedroid_enable(); 
-    esp_bluedroid_init();
- esp_hidh_config_t config = {
-        .callback = hidh_callback,
-        .event_stack_size = 4096,
-        .callback_arg = NULL,
-    };
-    esp_hidh_init(&config);
-    esp_bt_hid_host_init();
-    xTaskCreate(&hid_demo_task, "hid_task", 6 * 1024, NULL, 2, NULL);
-
-#endif    
 }
 
 void loop() {
     delay(1);
+#if 0    
     controller.setMotorConnected(motorc.isConnected());
     motorc.setDesiredTorqueLeft(controller.getCalculatedTorqueLeft());
     motorc.setDesiredTorqueRight(controller.getCalculatedTorqueRight());
     shiftDownButton.tick();
     shiftUpButton.tick();
+#endif    
 }
