@@ -22,7 +22,12 @@ BluetoothAudioMessage bam;
 
 class MyBluetoothAudioMessageCallbacks : public BluetoothAudioMessageCallbacks {
   void onBluetoothAudioMsg(BluetoothAudioMessage bam) {
-    Serial.printf("BluetoothAudioMessage received, id -> \r\n");
+    DBGLOG(Info, "  Status: %d -> %d", bam.btc, bam.btp);
+    DBGLOG(Info, "  Volume: %f", bam.btsv);
+    DBGLOG(Info, "  Artist: %s", bam.bta);
+    DBGLOG(Info, "  Title: %s", bam.bts);
+    DBGLOG(Info, "  Positiion %d of %d", bam.btpos, bam.btd);
+
   };
   void onError(const char *msg){};
 };
