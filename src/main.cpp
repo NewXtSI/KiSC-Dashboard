@@ -299,13 +299,21 @@ void handleShiftDownClick() {
 
 #endif
 
-KiSCProtoV2Master kiscProto("KiSCProtoV2Master");
+KiSCProtoV2Master kiscProto("Master");
+
+void onNetwordMessage() {
+    kiscProto.dumpNetwork();
+}
+
+void onData() {
+}
+
 void setup() {
   // put your setup code here, to run once:
     esp_task_wdt_init(60, true);
     esp_task_wdt_deinit();
-    delay(500);
     Serial.begin(115200);
+    delay(500);
     DBGINI(&Serial)
     DBGINI(&Serial, ESP32Timestamp::TimestampSinceStart)
   //    DBGINI(&Serial, ESP32Timestamp::TimestampSinceStart)
@@ -323,7 +331,10 @@ void setup() {
     DBGLOG(Debug, "Debug")
     DBGLOG(Info, "---------------------------------------------------------------"
                "---------")    
-kiscProto.start();
+    kiscProto.onData(onData);
+    kiscProto.onNetwork(onNetwordMessage);
+    kiscProto.start();
+
     //Serial.begin(115200);
    //Serial.setDebugOutput(true);
 #if 0   
