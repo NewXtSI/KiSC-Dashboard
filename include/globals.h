@@ -7,7 +7,7 @@
 #define MOTOR_FLYWHEEL -2222
 
 #define SERIAL_OUTPUT_ENABLED       1
-#define SERIAL_DEFAULT_LOGLEVEL     Verbose
+#define SERIAL_DEFAULT_LOGLEVEL     Debug
 // Untersteps: Enabled bei 0, disabled bei 1
 
 #define DBG_ENABLED                 0           // 

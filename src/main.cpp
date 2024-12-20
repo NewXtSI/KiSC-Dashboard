@@ -15,6 +15,17 @@
 #define ESP32DEBUGGING
 #include <ESP32Logger.h>
 
+#include "../KiSC-ESP-Now-Protocol/include/kiscproto.h"
+
+KiSCProto kiscproto;
+BluetoothAudioMessage bam;
+
+class MyBluetoothAudioMessageCallbacks : public BluetoothAudioMessageCallbacks {
+  void onBluetoothAudioMsg(BluetoothAudioMessage bam) {
+    Serial.printf("BluetoothAudioMessage received, id -> \r\n");
+  };
+  void onError(const char *msg){};
+};
 
 void setup() {
   // put your setup code here, to run once:
@@ -39,6 +50,8 @@ void setup() {
     DBGLOG(Debug, "Debug")
     DBGLOG(Info, "---------------------------------------------------------------"
                "---------")    
+    kiscproto.setBluetoothAudioMessageCallbacks(new MyBluetoothAudioMessageCallbacks());
+    kiscproto.init();               
 }
 
 void loop() {
